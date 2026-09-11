@@ -1,0 +1,38 @@
+{
+  "description": "Log Codex prompts and execution times",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agent-logger/adapters/codex.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agent-logger/adapters/codex.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agent-logger/adapters/codex.py",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

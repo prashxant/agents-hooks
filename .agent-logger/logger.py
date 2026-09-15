@@ -62,10 +62,12 @@ def main():
         if not statefile.exists(): return
         record = json.loads(statefile.read_text(encoding="utf-8"))
         ended = safe(data.get("timestamp"), now())
-        lines = ["## AI agent turn", "", f"- **Username:** `{getpass.getuser()}`", f"- **Time:** `{ended}`", "", "### Prompt", ""]
+        response = str(data.get("response") or data.get("output") or data.get("last_assistant_message") or "")
+        marker = "agent-turn:" + key
+        lines = [f"<!-- {marker} -->", "## AI agent turn", "", f"- **Username:** `{getpass.getuser()}`", f"- **Time:** `{ended}`", "", "### Prompt", ""]
         prompt = record.get("prompt", "")
         lines.extend("> " + line if line else ">" for line in prompt.splitlines() or [""])
-        lines.extend(["", "---", ""])
+        lines.extend(["", "### Summary", "", "_Summary pending._", "", "---", ""])
         lock(lockfile)
         try:
             with (root / "log.md").open("a", encoding="utf-8") as f: f.write("\n".join(lines))
@@ -74,6 +76,14 @@ def main():
             except OSError: pass
         try: statefile.unlink()
         except OSError: pass
+        job = {"marker": marker, "agent_name": agent, "provider": agent, "session_id": session,
+               "prompt": prompt, "response": response, "cwd": str(root), "log_file": str(root / "log.md")}
+        queue = root / ".agent-logger" / "queue"; queue.mkdir(parents=True, exist_ok=True)
+        jobfile = queue / (key + ".json"); jobfile.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
+        worker = pathlib.Path(__file__).with_name("summarizer_worker.py")
+        subprocess.Popen([sys.executable, str(worker), str(jobfile)], cwd=str(root),
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
     except Exception:
         return
 

@@ -67,7 +67,7 @@ def main():
         lines = [f"<!-- {marker} -->", "## AI agent turn", "", f"- **Username:** `{getpass.getuser()}`", f"- **Time:** `{ended}`", "", "### Prompt", ""]
         prompt = record.get("prompt", "")
         lines.extend("> " + line if line else ">" for line in prompt.splitlines() or [""])
-        lines.extend(["", "### Summary", "", "_Summary pending._", "", "---", ""])
+        lines.extend(["", "### Summary", "", "_Summary pending._", "", "### Decision", "", "_Decision pending._", "", "---", ""])
         lock(lockfile)
         try:
             with (root / "log.md").open("a", encoding="utf-8") as f: f.write("\n".join(lines))

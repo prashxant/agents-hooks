@@ -2,8 +2,8 @@
 import json, os, subprocess, sys, tempfile
 from pathlib import Path
 
-def update_summary(log_file, marker, summary):
-    """Replace the pending summary only inside the block identified by marker."""
+def update_section(log_file, marker, placeholder, replacement):
+    """Replace one placeholder only inside the block identified by marker."""
     path = Path(log_file)
     text = path.read_text(encoding="utf-8")
     marker_line = f"<!-- {marker} -->"
@@ -14,16 +14,17 @@ def update_summary(log_file, marker, summary):
     if end < 0:
         raise ValueError("log_block_not_found:" + marker)
     block = text[start:end]
-    if "_Summary pending._" not in block:
-        raise ValueError("summary_placeholder_not_found:" + marker)
-    block = block.replace("_Summary pending._", summary, 1)
+    if placeholder not in block:
+        raise ValueError("placeholder_not_found:" + marker)
+    block = block.replace(placeholder, replacement, 1)
     path.write_text(text[:start] + block + text[end:], encoding="utf-8")
 
 def main(path):
     jobfile = Path(path); job = json.loads(jobfile.read_text())
     if os.environ.get("AGENT_LOGGER_SUMMARIZER_RUNNING") == "1": return
-    prompt = ("Return JSON only with exactly two string fields: summary_line_1 and summary_line_2.\n"
-              "Line 1: what the user asked. Line 2: what the agent changed or produced.\n\n"
+    prompt = ("Return JSON only with exactly four fields: summary_line_1, summary_line_2, is_decision, decision_text.\n"
+              "summary_line_1: what the user asked. summary_line_2: what the agent changed or produced.\n"
+              "is_decision must be a boolean. decision_text must be a concise decision if is_decision is true, otherwise an empty string.\n\n"
               + json.dumps({"prompt": job["prompt"], "response": job["response"]}, ensure_ascii=False))
     try:
         with tempfile.NamedTemporaryFile() as out:
@@ -32,8 +33,11 @@ def main(path):
                            timeout=90, check=True, env={**os.environ, "AGENT_LOGGER_SUMMARIZER_RUNNING": "1"})
             result = json.loads(Path(out.name).read_text())
         a, b = result.get("summary_line_1", "").strip(), result.get("summary_line_2", "").strip()
-        if not a or not b: raise ValueError("empty_summary")
-        update_summary(job["log_file"], job["marker"], f"1. {a}\n2. {b}")
+        decision, decision_text = result.get("is_decision"), result.get("decision_text", "").strip()
+        if not a or not b or not isinstance(decision, bool) or (decision and not decision_text) or (not decision and decision_text): raise ValueError("invalid_summary_or_decision")
+        update_section(job["log_file"], job["marker"], "_Summary pending._", f"1. {a}\n2. {b}")
+        label = f"Decision: {decision_text}" if decision else "Not a Decision"
+        update_section(job["log_file"], job["marker"], "_Decision pending._", label)
         job["status"] = "completed"
     except Exception as exc:
         attempts = int(job.get("attempts", 0)) + 1
@@ -41,7 +45,8 @@ def main(path):
         job["status"] = "waiting_for_provider" if attempts < 3 else "failed"
         if attempts >= 3:
             log = Path(job["log_file"])
-            update_summary(log, job["marker"], "_Summary unavailable after 3 attempts._")
+            update_section(log, job["marker"], "_Summary pending._", "_Summary unavailable after 3 attempts._")
+            update_section(log, job["marker"], "_Decision pending._", "_Decision unavailable after 3 attempts._")
     jobfile.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
 
 if __name__ == "__main__": main(sys.argv[1])

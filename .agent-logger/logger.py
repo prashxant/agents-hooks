@@ -48,7 +48,9 @@ def main():
         turn = safe(data.get("turn_id"), "")
         if event not in EVENTS or agent == "unknown" or session == "unknown": return
         if event.startswith("turn.") and not turn:
-            turn = uuid.uuid4().hex
+            # Some providers omit turn_id on both lifecycle events. Use the
+            # session as a stable fallback so completion can find the start.
+            turn = session
         key = uuid.uuid5(uuid.NAMESPACE_URL, agent + "\0" + session + "\0" + turn).hex
         statefile, lockfile = state / (key + ".json"), state / ".lock"
         if event == "turn.started":

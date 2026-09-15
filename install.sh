@@ -30,7 +30,9 @@ backup ".agent-logger"
 
 mkdir -p ".codex"
 cp "$SOURCE_DIR/.codex/hooks.json" ".codex/hooks.json"
-cp -R "$SOURCE_DIR/.codex/hooks" ".codex/"
+if [ -d "$SOURCE_DIR/.codex/hooks" ]; then
+  cp -R "$SOURCE_DIR/.codex/hooks" ".codex/"
+fi
 cp -R "$SOURCE_DIR/.agent-logger" "."
 rm -rf ".agent-logger/state"
 find ".agent-logger" -type d -name __pycache__ -prune -exec rm -rf {} +

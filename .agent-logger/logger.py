@@ -7,7 +7,6 @@ import os
 import pathlib
 import subprocess
 import sys
-import tempfile
 import uuid
 
 EVENTS = {"turn.started", "turn.completed", "turn.interrupted", "turn.failed", "session.started", "session.ended"}
@@ -43,7 +42,7 @@ def main():
         if not isinstance(data, dict): return
         cwd = safe(data.get("cwd"), os.getcwd())
         root = root_for(cwd)
-        base, state = root / ".agent-logger", root / ".agent-logger" / "state"
+        state = root / ".agent-logger" / "state"
         state.mkdir(parents=True, exist_ok=True)
         agent = safe(data.get("agent")); session = safe(data.get("session_id")); event = safe(data.get("event"))
         turn = safe(data.get("turn_id"), "")
@@ -53,9 +52,7 @@ def main():
         key = uuid.uuid5(uuid.NAMESPACE_URL, agent + "\0" + session + "\0" + turn).hex
         statefile, lockfile = state / (key + ".json"), state / ".lock"
         if event == "turn.started":
-            record = {"schema_version": 1, "agent": agent, "session_id": session, "turn_id": turn,
-                      "prompt": str(data.get("prompt") or ""), "model": safe(data.get("model")),
-                      "started": safe(data.get("timestamp"), now()), "cwd": str(root), "status": "started"}
+            record = {"prompt": str(data.get("prompt") or "")}
             tmp = statefile.with_suffix(".tmp-" + uuid.uuid4().hex)
             tmp.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8"); os.replace(tmp, statefile)
             return
@@ -63,9 +60,6 @@ def main():
         if not statefile.exists(): return
         record = json.loads(statefile.read_text(encoding="utf-8"))
         ended = safe(data.get("timestamp"), now())
-        try: duration = (dt.datetime.fromisoformat(ended.replace("Z", "+00:00")) - dt.datetime.fromisoformat(record["started"].replace("Z", "+00:00"))).total_seconds()
-        except Exception: duration = 0.0
-        status = event.removeprefix("turn.")
         lines = ["## AI agent turn", "", f"- **Username:** `{getpass.getuser()}`", f"- **Time:** `{ended}`", "", "### Prompt", ""]
         prompt = record.get("prompt", "")
         lines.extend("> " + line if line else ">" for line in prompt.splitlines() or [""])

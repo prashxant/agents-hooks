@@ -12,10 +12,16 @@ curl -fsSL https://raw.githubusercontent.com/prashxant/agents-hooks/main/install
 bash /tmp/install-agent-hooks.sh
 ```
 
-To update an existing installation in place without creating backup folders:
+Existing installations are updated in place by default, without creating backup folders:
 
 ```bash
-bash /tmp/install-agent-hooks.sh --update
+bash /tmp/install-agent-hooks.sh
+```
+
+To preserve backups before updating, use:
+
+```bash
+bash /tmp/install-agent-hooks.sh --backup
 ```
 
 The installer creates these exact paths in the current project:
@@ -27,7 +33,7 @@ The installer creates these exact paths in the current project:
 log.md
 ```
 
-It enables Codex hooks and writes completed turn logs to `log.md`. Run `pwd` before installing to confirm you are in the intended project root. A normal install moves existing hook/logger paths to timestamped backup paths. Update mode replaces managed files in place, preserves `log.md` and runtime state, and does not create backup folders.
+It enables Codex hooks and writes completed turn logs to `log.md`. Run `pwd` before installing to confirm you are in the intended project root. The default update replaces managed files in place, preserves `log.md` and runtime state, and does not create backup folders. The optional `--backup` mode moves existing hook/logger paths to timestamped backup paths first.
 
 Verify the installation with:
 

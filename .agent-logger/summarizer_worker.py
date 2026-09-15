@@ -21,7 +21,14 @@ def main(path):
         Path(job["log_file"]).write_text(text, encoding="utf-8")
         job["status"] = "completed"
     except Exception as exc:
-        job["status"], job["error"] = "failed", str(exc)
+        attempts = int(job.get("attempts", 0)) + 1
+        job["attempts"], job["error"] = attempts, str(exc)
+        job["status"] = "waiting_for_provider" if attempts < 3 else "failed"
+        if attempts >= 3:
+            log = Path(job["log_file"])
+            text = log.read_text(encoding="utf-8")
+            text = text.replace("_Summary pending._", "_Summary unavailable after 3 attempts._", 1)
+            log.write_text(text, encoding="utf-8")
     jobfile.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
 
 if __name__ == "__main__": main(sys.argv[1])

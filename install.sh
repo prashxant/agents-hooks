@@ -3,6 +3,14 @@ set -euo pipefail
 
 SOURCE_URL="https://github.com/prashxant/agents-hooks/archive/refs/heads/main.tar.gz"
 TEMP_DIR="$(mktemp -d)"
+UPDATE_ONLY=false
+
+if [ "${1:-}" = "--update" ]; then
+  UPDATE_ONLY=true
+elif [ -n "${1:-}" ]; then
+  echo "Usage: $0 [--update]"
+  exit 1
+fi
 
 cleanup() {
   rm -rf "$TEMP_DIR"
@@ -24,9 +32,11 @@ backup() {
   fi
 }
 
-backup ".codex/hooks.json"
-backup ".codex/hooks"
-backup ".agent-logger"
+if [ "$UPDATE_ONLY" = false ]; then
+  backup ".codex/hooks.json"
+  backup ".codex/hooks"
+  backup ".agent-logger"
+fi
 
 mkdir -p ".codex"
 cp "$SOURCE_DIR/.codex/config.toml" ".codex/config.toml"
@@ -36,8 +46,14 @@ if [ -d "$SOURCE_DIR/.codex/hooks" ]; then
 fi
 mkdir -p ".agent-logger"
 cp -R "$SOURCE_DIR/.agent-logger/." ".agent-logger/"
-rm -rf ".agent-logger/state"
+if [ "$UPDATE_ONLY" = false ]; then
+  rm -rf ".agent-logger/state"
+fi
 find ".agent-logger" -type d -name __pycache__ -prune -exec rm -rf {} +
 touch log.md
 
-echo "Agent hooks installed successfully. Logs: $(pwd)/log.md"
+if [ "$UPDATE_ONLY" = true ]; then
+  echo "Agent hooks updated successfully. Logs: $(pwd)/log.md"
+else
+  echo "Agent hooks installed successfully. Logs: $(pwd)/log.md"
+fi

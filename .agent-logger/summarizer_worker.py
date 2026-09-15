@@ -2,6 +2,23 @@
 import json, os, subprocess, sys, tempfile
 from pathlib import Path
 
+def update_summary(log_file, marker, summary):
+    """Replace the pending summary only inside the block identified by marker."""
+    path = Path(log_file)
+    text = path.read_text(encoding="utf-8")
+    marker_line = f"<!-- {marker} -->"
+    start = text.find(marker_line)
+    if start < 0:
+        raise ValueError("log_marker_not_found:" + marker)
+    end = text.find("\n---\n", start)
+    if end < 0:
+        raise ValueError("log_block_not_found:" + marker)
+    block = text[start:end]
+    if "_Summary pending._" not in block:
+        raise ValueError("summary_placeholder_not_found:" + marker)
+    block = block.replace("_Summary pending._", summary, 1)
+    path.write_text(text[:start] + block + text[end:], encoding="utf-8")
+
 def main(path):
     jobfile = Path(path); job = json.loads(jobfile.read_text())
     if os.environ.get("AGENT_LOGGER_SUMMARIZER_RUNNING") == "1": return
@@ -16,9 +33,7 @@ def main(path):
             result = json.loads(Path(out.name).read_text())
         a, b = result.get("summary_line_1", "").strip(), result.get("summary_line_2", "").strip()
         if not a or not b: raise ValueError("empty_summary")
-        text = Path(job["log_file"]).read_text(encoding="utf-8")
-        text = text.replace("_Summary pending._", f"1. {a}\n2. {b}", 1)
-        Path(job["log_file"]).write_text(text, encoding="utf-8")
+        update_summary(job["log_file"], job["marker"], f"1. {a}\n2. {b}")
         job["status"] = "completed"
     except Exception as exc:
         attempts = int(job.get("attempts", 0)) + 1
@@ -26,9 +41,7 @@ def main(path):
         job["status"] = "waiting_for_provider" if attempts < 3 else "failed"
         if attempts >= 3:
             log = Path(job["log_file"])
-            text = log.read_text(encoding="utf-8")
-            text = text.replace("_Summary pending._", "_Summary unavailable after 3 attempts._", 1)
-            log.write_text(text, encoding="utf-8")
+            update_summary(log, job["marker"], "_Summary unavailable after 3 attempts._")
     jobfile.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
 
 if __name__ == "__main__": main(sys.argv[1])
